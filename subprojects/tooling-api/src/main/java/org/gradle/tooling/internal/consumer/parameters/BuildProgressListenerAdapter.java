@@ -106,7 +106,7 @@ import org.gradle.tooling.internal.protocol.events.InternalTaskFailureResult;
 import org.gradle.tooling.internal.protocol.events.InternalTaskResult;
 import org.gradle.tooling.internal.protocol.events.InternalTaskSkippedResult;
 import org.gradle.tooling.internal.protocol.events.InternalTaskSuccessResult;
-import org.gradle.tooling.internal.protocol.events.InternalTaskWithDependenciesDescriptor;
+import org.gradle.tooling.internal.protocol.events.InternalTaskWithExtraInfoDescriptor;
 import org.gradle.tooling.internal.protocol.events.InternalTestDescriptor;
 import org.gradle.tooling.internal.protocol.events.InternalTestFailureResult;
 import org.gradle.tooling.internal.protocol.events.InternalTestFinishedProgressEvent;
@@ -397,16 +397,19 @@ public class BuildProgressListenerAdapter implements InternalBuildProgressListen
     private TaskOperationDescriptor toTaskDescriptor(InternalTaskDescriptor descriptor) {
         OperationDescriptor parent = getParentDescriptor(descriptor.getParentId());
         Set<OperationDescriptor> dependencies = null;
-        if (descriptor instanceof InternalTaskWithDependenciesDescriptor) {
+        PluginIdentifier originPlugin = null;
+        if (descriptor instanceof InternalTaskWithExtraInfoDescriptor) {
+            InternalTaskWithExtraInfoDescriptor descriptorWithExtras = (InternalTaskWithExtraInfoDescriptor) descriptor;
             dependencies = new LinkedHashSet<OperationDescriptor>();
-            for (InternalOperationDescriptor dependency : ((InternalTaskWithDependenciesDescriptor) descriptor).getDependencies()) {
+            for (InternalOperationDescriptor dependency : descriptorWithExtras.getDependencies()) {
                 OperationDescriptor dependencyDescriptor = descriptorCache.get(dependency.getId());
                 if (dependencyDescriptor != null) {
                     dependencies.add(dependencyDescriptor);
                 }
             }
+            originPlugin = toPluginIdentifier(descriptorWithExtras.getOriginPlugin());
         }
-        return new DefaultTaskOperationDescriptor(descriptor, parent, descriptor.getTaskPath(), dependencies);
+        return new DefaultTaskOperationDescriptor(descriptor, parent, descriptor.getTaskPath(), dependencies, originPlugin);
     }
 
     private WorkItemOperationDescriptor toWorkItemDescriptor(InternalWorkItemDescriptor descriptor) {

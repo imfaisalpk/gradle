@@ -17,6 +17,7 @@
 package org.gradle.tooling.events.task.internal;
 
 import org.gradle.tooling.events.OperationDescriptor;
+import org.gradle.tooling.events.PluginIdentifier;
 import org.gradle.tooling.events.internal.DefaultOperationDescriptor;
 import org.gradle.tooling.events.task.TaskOperationDescriptor;
 import org.gradle.tooling.internal.protocol.events.InternalTaskDescriptor;
@@ -31,11 +32,13 @@ public final class DefaultTaskOperationDescriptor extends DefaultOperationDescri
 
     private final String taskPath;
     private final Set<OperationDescriptor> dependencies;
+    private final PluginIdentifier originPlugin;
 
-    public DefaultTaskOperationDescriptor(InternalTaskDescriptor descriptor, OperationDescriptor parent, String taskPath, Set<OperationDescriptor> dependencies) {
+    public DefaultTaskOperationDescriptor(InternalTaskDescriptor descriptor, OperationDescriptor parent, String taskPath, Set<OperationDescriptor> dependencies, PluginIdentifier originPlugin) {
         super(descriptor, parent);
         this.taskPath = taskPath;
         this.dependencies = dependencies;
+        this.originPlugin = originPlugin;
     }
 
     @Override
@@ -49,6 +52,14 @@ public final class DefaultTaskOperationDescriptor extends DefaultOperationDescri
             throw Exceptions.unsupportedMethod(TaskOperationDescriptor.class.getSimpleName() + ".getDependencies()");
         }
         return dependencies;
+    }
+
+    @Override
+    public PluginIdentifier getOriginPlugin() {
+        if (originPlugin == null) {
+            throw Exceptions.unsupportedMethod(TaskOperationDescriptor.class.getSimpleName() + ".getOriginPlugin()");
+        }
+        return originPlugin;
     }
 
 }

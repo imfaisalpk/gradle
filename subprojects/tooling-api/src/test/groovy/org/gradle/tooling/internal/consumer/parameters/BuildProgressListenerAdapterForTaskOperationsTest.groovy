@@ -16,13 +16,29 @@
 
 package org.gradle.tooling.internal.consumer.parameters
 
+import org.gradle.testing.internal.util.Specification
+import org.gradle.tooling.events.BinaryPluginIdentifier
 import org.gradle.tooling.events.OperationType
 import org.gradle.tooling.events.ProgressListener
-import org.gradle.tooling.events.task.*
+import org.gradle.tooling.events.ScriptPluginIdentifier
+import org.gradle.tooling.events.task.TaskFailureResult
+import org.gradle.tooling.events.task.TaskFinishEvent
+import org.gradle.tooling.events.task.TaskSkippedResult
+import org.gradle.tooling.events.task.TaskStartEvent
+import org.gradle.tooling.events.task.TaskSuccessResult
 import org.gradle.tooling.internal.protocol.InternalBuildProgressListener
 import org.gradle.tooling.internal.protocol.InternalFailure
-import org.gradle.tooling.internal.protocol.events.*
-import spock.lang.Specification
+import org.gradle.tooling.internal.protocol.events.InternalBinaryPluginIdentifier
+import org.gradle.tooling.internal.protocol.events.InternalOperationDescriptor
+import org.gradle.tooling.internal.protocol.events.InternalOperationFinishedProgressEvent
+import org.gradle.tooling.internal.protocol.events.InternalOperationStartedProgressEvent
+import org.gradle.tooling.internal.protocol.events.InternalProgressEvent
+import org.gradle.tooling.internal.protocol.events.InternalScriptPluginIdentifier
+import org.gradle.tooling.internal.protocol.events.InternalTaskDescriptor
+import org.gradle.tooling.internal.protocol.events.InternalTaskFailureResult
+import org.gradle.tooling.internal.protocol.events.InternalTaskSkippedResult
+import org.gradle.tooling.internal.protocol.events.InternalTaskSuccessResult
+import org.gradle.tooling.internal.protocol.events.InternalTaskWithExtraInfoDescriptor
 
 class BuildProgressListenerAdapterForTaskOperationsTest extends Specification {
 
@@ -356,17 +372,22 @@ class BuildProgressListenerAdapterForTaskOperationsTest extends Specification {
         }
     }
 
-    def "convert task dependencies"() {
+    def "convert task origin and dependencies"() {
         given:
         def listener = Mock(ProgressListener)
         def adapter = createAdapter(listener)
 
-        def dependencyTaskDescriptor = Stub(InternalTaskWithDependenciesDescriptor)
+        def dependencyTaskOrigin = Stub(InternalScriptPluginIdentifier)
+        _ * dependencyTaskOrigin.getDisplayName() >> "build.gradle"
+        _ * dependencyTaskOrigin.getUri() >> URI.create("http://example.com/build.gradle")
+
+        def dependencyTaskDescriptor = Stub(InternalTaskWithExtraInfoDescriptor)
         _ * dependencyTaskDescriptor.getId() >> ':dependency'
         _ * dependencyTaskDescriptor.getName() >> 'dependency task'
         _ * dependencyTaskDescriptor.getParentId() >> null
         _ * dependencyTaskDescriptor.getTaskPath() >> ':dependency:path'
         _ * dependencyTaskDescriptor.getDependencies() >> []
+        _ * dependencyTaskDescriptor.getOriginPlugin() >> dependencyTaskOrigin
 
         def dependencyStartEvent = Stub(InternalOperationStartedProgressEvent)
         _ * dependencyStartEvent.getEventTime() >> 800
@@ -383,12 +404,18 @@ class BuildProgressListenerAdapterForTaskOperationsTest extends Specification {
         _ * dependencyFinishEvent.getDescriptor() >> dependencyTaskDescriptor
         _ * dependencyFinishEvent.getResult() >> dependencyTaskResult
 
-        def taskDescriptor = Stub(InternalTaskWithDependenciesDescriptor)
+        def taskOrigin = Stub(InternalBinaryPluginIdentifier)
+        _ * taskOrigin.getDisplayName() >> "org.example"
+        _ * taskOrigin.getClassName() >> "org.example.MyPlugin"
+        _ * taskOrigin.getPluginId() >> "org.example"
+
+        def taskDescriptor = Stub(InternalTaskWithExtraInfoDescriptor)
         _ * taskDescriptor.getId() >> ':dummy'
         _ * taskDescriptor.getName() >> 'some task'
         _ * taskDescriptor.getParentId() >> null
         _ * taskDescriptor.getTaskPath() >> ':some:path'
         _ * taskDescriptor.getDependencies() >> [dependencyTaskDescriptor]
+        _ * taskDescriptor.getOriginPlugin() >> taskOrigin
 
         def startEvent = Stub(InternalOperationStartedProgressEvent)
         _ * startEvent.getEventTime() >> 1000
@@ -413,11 +440,18 @@ class BuildProgressListenerAdapterForTaskOperationsTest extends Specification {
             assert event.descriptor.taskPath == ':some:path'
             assert event.descriptor.parent == null
             assert event.descriptor.dependencies.size() == 1
+            assert event.descriptor.originPlugin instanceof BinaryPluginIdentifier
+            assert event.descriptor.originPlugin.displayName == 'org.example'
+            assert event.descriptor.originPlugin.className == 'org.example.MyPlugin'
+            assert event.descriptor.originPlugin.pluginId == 'org.example'
             with(event.descriptor.dependencies[0]) {
                 assert it.name == 'dependency task'
                 assert it.taskPath == ':dependency:path'
                 assert it.parent == null
                 assert it.dependencies.empty
+                assert it.originPlugin instanceof ScriptPluginIdentifier
+                assert it.originPlugin.displayName == 'build.gradle'
+                assert it.originPlugin.uri == URI.create("http://example.com/build.gradle")
             }
         }
     }
@@ -427,7 +461,7 @@ class BuildProgressListenerAdapterForTaskOperationsTest extends Specification {
         def listener = Mock(ProgressListener)
         def adapter = createAdapter(listener)
 
-        def taskDescriptor = Stub(InternalTaskWithDependenciesDescriptor)
+        def taskDescriptor = Stub(InternalTaskWithExtraInfoDescriptor)
         _ * taskDescriptor.getId() >> ':dummy'
         _ * taskDescriptor.getName() >> 'some task'
         _ * taskDescriptor.getParentId() >> null

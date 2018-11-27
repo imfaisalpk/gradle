@@ -36,10 +36,7 @@ class ProgressEventConsumer {
     }
 
     Object findStartedParentId(OperationIdentifier id) {
-        if (id == null || startedIds.contains(id)) {
-            return id;
-        }
-        return findStartedParentId(parentTracker.getParent(id));
+        return parentTracker.findClosestAncestor(id, startedIds::contains);
     }
 
     void started(InternalOperationStartedProgressEvent event) {
